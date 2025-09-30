@@ -1,0 +1,75 @@
+services:
+  text-generation:
+    build: ./text-generation
+    ports:
+      - "8001:8001"
+    networks:
+      - debate-network
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  tts:
+    build: ./tts
+    ports:
+      - "8002:8002"
+    networks:
+      - debate-network
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  lipsync:
+    build: ./lipsync
+    ports:
+      - "8003:8003"
+    networks:
+      - debate-network
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /tmp:/tmp:rw
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+
+  orchestrator:
+    build: ./orchestrator
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./assets:/app/assets:ro
+      - ./output:/app/output:rw
+      - /tmp:/tmp:rw
+    depends_on:
+      text-generation:
+        condition: service_healthy
+      tts:
+        condition: service_healthy
+      lipsync:
+        condition: service_healthy
+    networks:
+      - debate-network
+    environment:
+      - PYTHONUNBUFFERED=1
+
+networks:
+  debate-network:
+    driver: bridge
