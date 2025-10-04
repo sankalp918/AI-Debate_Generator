@@ -1,280 +1,256 @@
+# orchestrator/main.py
 import requests
 import os
 import json
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
+import base64
+from moviepy.editor import VideoFileClip, concatenate_videoclips
 import tempfile
 import uuid
-import time
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string
+import logging
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
+
+# HTML interface for user input
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Debate Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 30px; border-radius: 10px; }
+        input, select { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; }
+        button { background: #007bff; color: white; padding: 12px 30px; border: none; 
+                 border-radius: 5px; font-size: 18px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .status { margin-top: 20px; padding: 15px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .processing { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Debate Generator</h1>
+        <form id="debateForm">
+            <label>Debate Topic:</label>
+            <input type="text" id="topic" placeholder="e.g., AI will replace most human jobs within 20 years" required>
+
+            <label>Number of Rounds:</label>
+            <select id="rounds">
+                <option value="1">1 Round</option>
+                <option value="2" selected>2 Rounds</option>
+                <option value="3">3 Rounds</option>
+            </select>
+
+            <label>Colab API URL (from ngrok):</label>
+            <input type="text" id="colab_url" placeholder="https://xxxx-xx-xx.ngrok.io" required>
+
+            <button type="submit">Generate Debate</button>
+        </form>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        document.getElementById('debateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status processing';
+            statusDiv.innerHTML = 'Processing... This may take several minutes.';
+
+            const formData = {
+                topic: document.getElementById('topic').value,
+                rounds: parseInt(document.getElementById('rounds').value),
+                colab_url: document.getElementById('colab_url').value
+            };
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    statusDiv.className = 'status success';
+                    statusDiv.innerHTML = `Success! Video saved to: ${result.video_path}<br>
+                                         <a href="/download/${result.filename}" download>Download Video</a>`;
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.innerHTML = `Error: ${result.error}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
+"""
 
 
 class DebateGenerator:
-    def __init__(self):
+    def __init__(self, colab_url=None):
         self.text_service = "http://text-generation:8001"
         self.tts_service = "http://tts:8002"
-        self.lipsync_service = "http://lipsync:8003"
+        self.lipsync_service = colab_url or "https://your-ngrok-url.ngrok.io"
 
     def generate_debate(self, topic, rounds=3):
-        """Generate complete debate video"""
         session_id = str(uuid.uuid4())
         video_clips = []
         context = ""
 
-        print(f"Starting debate generation for: {topic}")
+        logging.info(f"Starting debate: {topic}, {rounds} rounds")
+        logging.info(f"Using Colab endpoint: {self.lipsync_service}")
 
         for round_num in range(rounds):
-            print(f"Round {round_num + 1}/{rounds}")
+            logging.info(f"Round {round_num + 1}/{rounds}")
 
             # Generate pro argument
-            print("Generating pro argument...")
             pro_text = self._generate_text(topic, 'pro', context)
-            print(f"Pro text: {pro_text[:100]}...")
-
-            print("Generating pro audio...")
             pro_audio = self._generate_audio(pro_text, 'person1', session_id, f"pro_{round_num}")
 
             if pro_audio:
-                print("Generating pro video...")
-                pro_video = self._generate_lipsync('person1', pro_audio, session_id, f"pro_{round_num}")
-                if pro_video and self._validate_video(pro_video):
+                pro_video = self._generate_lipsync_colab('person1', pro_audio, session_id, f"pro_{round_num}")
+                if pro_video:
                     video_clips.append(pro_video)
-                    context += f"Pro argument: {pro_text}\n"
-                else:
-                    print("Failed to generate valid pro video")
-                    continue
-            else:
-                print("Failed to generate pro audio")
-                continue
+                    context += f"Pro: {pro_text}\n"
 
             # Generate con argument
-            print("Generating con argument...")
             con_text = self._generate_text(topic, 'con', context)
-            print(f"Con text: {con_text[:100]}...")
-
-            print("Generating con audio...")
             con_audio = self._generate_audio(con_text, 'person2', session_id, f"con_{round_num}")
 
             if con_audio:
-                print("Generating con video...")
-                con_video = self._generate_lipsync('person2', con_audio, session_id, f"con_{round_num}")
-                if con_video and self._validate_video(con_video):
+                con_video = self._generate_lipsync_colab('person2', con_audio, session_id, f"con_{round_num}")
+                if con_video:
                     video_clips.append(con_video)
-                    context += f"Con argument: {con_text}\n"
-                else:
-                    print("Failed to generate valid con video")
-            else:
-                print("Failed to generate con audio")
+                    context += f"Con: {con_text}\n"
 
         if not video_clips:
-            raise Exception("No valid video clips generated")
+            raise Exception("No video clips generated")
 
-        # Combine all clips
-        print(f"Combining {len(video_clips)} video clips...")
         final_video = self._combine_videos(video_clips, session_id)
-        print(f"Final video saved: {final_video}")
-        return final_video
+        return final_video, session_id
 
     def _generate_text(self, topic, position, context):
-        """Generate debate text"""
         try:
-            response = requests.post(f"{self.text_service}/generate", json={
-                'topic': topic,
-                'position': position,
-                'context': context
-            }, timeout=6000)
-            response.raise_for_status()
+            response = requests.post(f"{self.text_service}/generate",
+                                     json={'topic': topic, 'position': position, 'context': context},
+                                     timeout=30)
 
-            result = response.json()
-            content = result.get('content', '').strip()
-
-            # Validate content
-            if not content or len(content) < 10 or content == '...':
-                print(f"Invalid text generated: '{content}', using fallback")
-                raise Exception("Generated text too short or invalid")
-
-            print(f"Generated text ({len(content)} chars): {content}")
-            return content
-
+            if response.status_code == 200:
+                return response.json()['content']
         except Exception as e:
-            print(f"Text generation error: {e}")
-            # Fallback text
-            if position == 'pro':
-                return f"I strongly support the idea that {topic}. This technological advancement will bring significant benefits to society, including increased efficiency, reduced costs, and new opportunities for human creativity and innovation."
-            else:
-                return f"I disagree with the notion that {topic}. While technology advances rapidly, human skills like creativity, emotional intelligence, and complex problem-solving remain irreplaceable. We should focus on human-AI collaboration rather than replacement."
+            logging.error(f"Text generation error: {e}")
+
+        # Fallback
+        if position == 'pro':
+            return f"I support {topic} because it represents progress and innovation."
+        else:
+            return f"I oppose {topic} because we must consider the human impact."
 
     def _generate_audio(self, text, speaker, session_id, clip_id):
-        """Generate TTS audio"""
         try:
-            # Send as JSON, not form data
             response = requests.post(f"{self.tts_service}/synthesize",
-                                     json={
-                                         'text': text,
-                                         'speaker': speaker
-                                     },
-                                     timeout=6000
-                                     )
+                                     json={'text': text, 'speaker': speaker},
+                                     timeout=30)
 
-            if response.status_code != 200:
-                print(f"TTS error: {response.status_code} - {response.text}")
-                return None
-
-            audio_path = f"/tmp/{session_id}_{clip_id}_audio.wav"
-            with open(audio_path, 'wb') as f:
-                f.write(response.content)
-
-            # Validate audio file
-            if os.path.getsize(audio_path) < 1000:  # Less than 1KB is probably invalid
-                print(f"Audio file too small: {os.path.getsize(audio_path)} bytes")
-                return None
-
-            return audio_path
-
+            if response.status_code == 200:
+                audio_path = f"/tmp/{session_id}_{clip_id}.wav"
+                with open(audio_path, 'wb') as f:
+                    f.write(response.content)
+                return audio_path
         except Exception as e:
-            print(f"Audio generation error: {e}")
-            return None
+            logging.error(f"Audio generation error: {e}")
+        return None
 
-    def _generate_lipsync(self, person, audio_path, session_id, clip_id):
-        """Generate lip-synced video"""
+    def _generate_lipsync_colab(self, person, audio_path, session_id, clip_id):
         try:
             image_path = f"/app/assets/{person}.jpg"
 
-            if not os.path.exists(image_path):
-                print(f"Image not found: {image_path}")
-                return None
+            # Read files and encode to base64
+            with open(image_path, 'rb') as f:
+                image_data = base64.b64encode(f.read()).decode()
+            with open(audio_path, 'rb') as f:
+                audio_data = base64.b64encode(f.read()).decode()
 
-            if not os.path.exists(audio_path):
-                print(f"Audio not found: {audio_path}")
-                return None
-
-            print(f"Sending lipsync request: {image_path}, {audio_path}")
-
-            files = {
-                'image': ('face.jpg', open(image_path, 'rb'), 'image/jpeg'),
-                'audio': ('audio.wav', open(audio_path, 'rb'), 'audio/wav')
-            }
-
-            response = requests.post(f"{self.lipsync_service}/lipsync",
-                                     files=files,
-                                     timeout=6000
-                                     )
-
-            # Close files
-            files['image'][1].close()
-            files['audio'][1].close()
-
-            if response.status_code != 200:
-                print(f"Lipsync error: {response.status_code} - {response.text}")
-                return None
-
-            video_path = f"/tmp/{session_id}_{clip_id}_video.mp4"
-            with open(video_path, 'wb') as f:
-                f.write(response.content)
-
-            return video_path
-
-        except Exception as e:
-            print(f"Lipsync generation error: {e}")
-            return None
-
-    def _validate_video(self, video_path):
-        """Validate video file"""
-        try:
-            if not os.path.exists(video_path):
-                print(f"Video file doesn't exist: {video_path}")
-                return False
-
-            file_size = os.path.getsize(video_path)
-            if file_size < 10000:  # Less than 10KB is probably invalid
-                print(f"Video file too small: {file_size} bytes")
-                return False
-
-            # Try to open with moviepy
-            clip = VideoFileClip(video_path)
-            duration = clip.duration
-            clip.close()
-
-            if duration <= 0:
-                print(f"Invalid video duration: {duration}")
-                return False
-
-            print(f"Video validated: {video_path}, duration: {duration}s, size: {file_size} bytes")
-            return True
-
-        except Exception as e:
-            print(f"Video validation error: {e}")
-            return False
-
-    def _combine_videos(self, video_paths, session_id):
-        """Combine video clips into final output"""
-        try:
-            clips = []
-            for path in video_paths:
-                if self._validate_video(path):
-                    clips.append(VideoFileClip(path))
-
-            if not clips:
-                raise Exception("No valid video clips to combine")
-
-            final_clip = concatenate_videoclips(clips, method="compose")
-
-            output_path = f"/app/output/{session_id}_debate.mp4"
-            final_clip.write_videofile(
-                output_path,
-                codec='libx264',
-                audio_codec='aac',
-                temp_audiofile=f"/tmp/{session_id}_temp_audio.m4a",
-                remove_temp=True
+            # Send to Colab
+            response = requests.post(
+                f"{self.lipsync_service}/lipsync",
+                json={'image': image_data, 'audio': audio_data},
+                timeout=300  # 5 minute timeout
             )
 
-            # Cleanup
-            for clip in clips:
-                clip.close()
-            final_clip.close()
-
-            return output_path
-
+            if response.status_code == 200:
+                result = response.json()
+                if result['success']:
+                    video_data = base64.b64decode(result['video'])
+                    video_path = f"/tmp/{session_id}_{clip_id}.mp4"
+                    with open(video_path, 'wb') as f:
+                        f.write(video_data)
+                    return video_path
         except Exception as e:
-            print(f"Video combination error: {e}")
-            raise
+            logging.error(f"Lipsync error: {e}")
+        return None
+
+    def _combine_videos(self, video_paths, session_id):
+        clips = []
+        for path in video_paths:
+            if os.path.exists(path):
+                clips.append(VideoFileClip(path))
+
+        final_clip = concatenate_videoclips(clips, method="compose")
+        output_path = f"/app/output/{session_id}_debate.mp4"
+        final_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
+
+        for clip in clips:
+            clip.close()
+        final_clip.close()
+
+        return output_path
+
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_TEMPLATE)
 
 
 @app.route('/generate', methods=['POST'])
 def generate_debate():
     try:
         data = request.json
-        topic = data.get('topic', 'Artificial Intelligence')
+        topic = data.get('topic')
         rounds = data.get('rounds', 2)
+        colab_url = data.get('colab_url')
 
-        generator = DebateGenerator()
-        video_path = generator.generate_debate(topic, rounds)
+        generator = DebateGenerator(colab_url)
+        video_path, session_id = generator.generate_debate(topic, rounds)
 
         return jsonify({
             'success': True,
             'video_path': video_path,
-            'message': f'Debate video generated successfully'
+            'filename': f"{session_id}_debate.mp4"
         })
-
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/health', methods=['GET'])
+@app.route('/download/<filename>')
+def download(filename):
+    return send_file(f"/app/output/{filename}", as_attachment=True)
+
+
+@app.route('/health')
 def health():
-    return jsonify({'status': 'healthy', 'service': 'orchestrator'})
+    return jsonify({'status': 'healthy'})
 
 
 if __name__ == '__main__':
-    # Test with a simple topic
-    generator = DebateGenerator()
-    topic = "Artificial Intelligence will replace most human jobs within 20 years"
-    try:
-        video_path = generator.generate_debate(topic, rounds=1)
-        print(f"Success! Video saved to: {video_path}")
-    except Exception as e:
-        print(f"Error: {e}")
+    app.run(host='0.0.0.0', port=8000, debug=False)
