@@ -19,6 +19,8 @@ services:
       - "8002:8002"
     networks:
       - debate-network
+    env_file:
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
     healthcheck:

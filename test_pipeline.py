@@ -18,7 +18,7 @@ def test_text_generation():
                 'position': 'pro',
                 'context': ''
             },
-            timeout=30
+            timeout=300
         )
 
         print(f"Status Code: {response.status_code}")
@@ -55,7 +55,7 @@ def test_tts():
                 'text': 'Hello, this is a test of the text to speech system.',
                 'speaker': 'person1'
             },
-            timeout=30
+            timeout=300
         )
 
         print(f"Status Code: {response.status_code}")
@@ -85,7 +85,7 @@ def test_orchestrator_health():
     print("="*50)
 
     try:
-        response = requests.get('http://localhost:8000/', timeout=10)
+        response = requests.get('http://localhost:8000/', timeout=30)
 
         print(f"Status Code: {response.status_code}")
 

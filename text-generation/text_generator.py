@@ -142,7 +142,7 @@ def health():
     # Test LM Studio connection
     lm_studio_ok = False
     try:
-        response = requests.get("http://host.docker.internal:1234/v1/models", timeout=5)
+        response = requests.get("http://host.docker.internal:1234/v1/models", timeout=30)
         lm_studio_ok = response.status_code == 200
     except:
         pass
