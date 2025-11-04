@@ -6,7 +6,7 @@ import base64
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 import tempfile
 import uuid
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, send_file
 import logging
 
 app = Flask(__name__)
@@ -100,7 +100,8 @@ class DebateGenerator:
     def __init__(self, colab_url=None):
         self.text_service = "http://text-generation:8001"
         self.tts_service = "http://tts:8002"
-        self.lipsync_service = colab_url or "https://your-ngrok-url.ngrok.io"
+        # Normalize to avoid trailing slashes that can create double slashes in requests
+        self.lipsync_service = (colab_url or "https://your-ngrok-url.ngrok.io").rstrip('/')
 
     def generate_debate(self, topic, rounds=3):
         session_id = str(uuid.uuid4())
@@ -143,7 +144,7 @@ class DebateGenerator:
         try:
             response = requests.post(f"{self.text_service}/generate",
                                      json={'topic': topic, 'position': position, 'context': context},
-                                     timeout=30)
+                                     timeout=300)
 
             if response.status_code == 200:
                 return response.json()['content']
@@ -160,7 +161,7 @@ class DebateGenerator:
         try:
             response = requests.post(f"{self.tts_service}/synthesize",
                                      json={'text': text, 'speaker': speaker},
-                                     timeout=30)
+                                     timeout=300)
 
             if response.status_code == 200:
                 audio_path = f"/tmp/{session_id}_{clip_id}.wav"
@@ -182,10 +183,15 @@ class DebateGenerator:
                 audio_data = base64.b64encode(f.read()).decode()
 
             # Send to Colab
+            # Allow opting out of TLS verification if the container lacks CA roots or ngrok TLS misbehaves
+            verify_tls = os.getenv('LIPSYNC_VERIFY_TLS', 'true').lower() not in ('0', 'false', 'no')
+
             response = requests.post(
                 f"{self.lipsync_service}/lipsync",
                 json={'image': image_data, 'audio': audio_data},
-                timeout=300  # 5 minute timeout
+                headers={'Content-Type': 'application/json'},
+                timeout=600,  # 10-minute timeout
+                verify=verify_tls
             )
 
             if response.status_code == 200:
