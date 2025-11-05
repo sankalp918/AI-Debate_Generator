@@ -16,8 +16,8 @@ LM_STUDIO_URL = "http://host.docker.internal:1234/v1/chat/completions"
 def generate_debate_content(topic: str, position: str, previous_context: str = "") -> str:
     """Generate a debate argument for a given topic and position.
 
-    The function will first attempt to use LM Studio to produce a high
-    quality argument. If LM Studio is unavailable or returns an invalid
+    The function will first attempt to use LM Studio to produce a high
+    quality argument. If LM Studio is unavailable or returns an invalid
     response, the generator falls back to a set of handcrafted
     templates. When using the fallback, the previous context is used
     to cycle through the available templates so that repeated calls
@@ -34,16 +34,21 @@ def generate_debate_content(topic: str, position: str, previous_context: str = "
         A string containing the generated argument.
     """
 
-    # Try LM Studio first. This will produce more natural arguments and
+    # Try LM Studio first. This will produce more natural arguments and
     # allows the model to reference the previous context.
     try:
-        prompt = f"""Debate Topic: {topic}
+        # Compose a prompt that includes the conversation history.
+        context_section = ""
+        if previous_context:
+            context_section = f"\nHere is the conversation so far:\n{previous_context.strip()}\n"
 
-You are arguing {'FOR' if position == 'pro' else 'AGAINST'} this statement.
+        prompt = f"""Debate Topic: {topic}{context_section}
 
-Provide a compelling 2-3 sentence argument. Be specific and persuasive. Keep under 150 words.
+        You are arguing {'FOR' if position == 'pro' else 'AGAINST'} this statement.
 
-Your argument:"""
+        Provide a compelling 2-3 sentence argument that responds to the opponent's last point when applicable. Be specific and persuasive. Keep under 150 words.
+
+        Your argument:"""
 
         payload = {
             "model": "openai-gpt-oss-20b-abliterated-uncensored-neo-imatrix",
@@ -57,13 +62,13 @@ Your argument:"""
         }
 
         logging.info(f"Sending LM Studio request for {position} position")
-        response = requests.post(LM_STUDIO_URL, json=payload, timeout=6000)
+        response = requests.post(LM_STUDIO_URL, json=payload, timeout=60000)
 
         if response.status_code == 200:
             result = response.json()
             logging.info(f"LM Studio response: {result}")
 
-            # Handle different response structures returned by LM Studio.
+            # Handle different response structures returned by LM Studio.
             content = ""
             if 'choices' in result and len(result['choices']) > 0:
                 choice = result['choices'][0]
@@ -106,7 +111,7 @@ Your argument:"""
 def generate_fallback_content(topic: str, position: str, context: str = "") -> str:
     """Generate a deterministic fallback argument.
 
-    When LM Studio is not available, fallback templates provide
+    When LM Studio is not available, fallback templates provide
     reasonable arguments for both sides of a topic. To avoid repeated
     audio across multiple rounds, this function uses the existing
     conversation context to rotate through the available templates.
@@ -135,9 +140,9 @@ def generate_fallback_content(topic: str, position: str, context: str = "") -> s
         ]
     else:
         templates = [
-            f"The premise that {topic.lower()} fundamentally misunderstands the complexity of human work and the limitations of current AI systems. While automation excels at repetitive tasks, most jobs require emotional intelligence, creative problem‑solving, and contextual judgment that remain beyond AI capabilities. The Oxford Economics study showing 20 million manufacturing jobs at risk fails to account for the 97 million new roles the World Economic Forum predicts AI will create.",
+            f"The premise that {topic.lower()} fundamentally misunderstands the complexity of human work and the limitations of current AI systems. While automation excels at repetitive tasks, most jobs require emotional intelligence, creative problem‑solving, and contextual judgment that remain beyond AI capabilities. The Oxford Economics study showing 20 million manufacturing jobs at risk fails to account for the 97 million new roles the World Economic Forum predicts AI will create.",
 
-            f"Historical precedent suggests that {topic.lower()} overestimates the speed of technological adoption and underestimates human adaptability. The transition from agriculture to manufacturing took over a century, allowing gradual workforce adjustment. Current retraining programs and educational initiatives are already preparing workers for AI collaboration rather than replacement, as seen in Germany's Industry 4.0 initiative.",
+            f"Historical precedent suggests that {topic.lower()} overestimates the speed of technological adoption and underestimates human adaptability. The transition from agriculture to manufacturing took over a century, allowing gradual workforce adjustment. Current retraining programs and educational initiatives are already preparing workers for AI collaboration rather than replacement, as seen in Germany's Industry 4.0 initiative.",
 
             f"The assumption that {topic.lower()} ignores critical economic and social factors that will slow this transition. Regulatory frameworks, ethical concerns about algorithmic bias, and the high costs of AI implementation will create natural barriers. Additionally, consumer preferences often favor human interaction in healthcare, education, and hospitality sectors, ensuring sustained demand for human workers in these essential areas."
         ]
@@ -211,13 +216,13 @@ def generate():
 def health():
     """Health check endpoint.
 
-    Returns the service status and indicates whether LM Studio is
+    Returns the service status and indicates whether LM Studio is
     reachable. Useful for orchestrator service to verify the text
     generation component is online.
     """
     lm_studio_ok = False
     try:
-        response = requests.get("http://host.docker.internal:1234/v1/models", timeout=50)
+        response = requests.get("http://host.docker.internal:1234/v1/models", timeout=500)
         lm_studio_ok = response.status_code == 200
     except Exception:
         pass
@@ -231,11 +236,11 @@ def health():
 
 @app.route('/debug', methods=['POST'])
 def debug():
-    """Debug endpoint to call LM Studio directly.
+    """Debug endpoint to call LM Studio directly.
 
-    This helper allows you to test the connection to LM Studio outside
+    This helper allows you to test the connection to LM Studio outside
     the normal debate generation flow. It accepts a topic in the POST
-    body and returns the raw response from LM Studio.
+    body and returns the raw response from LM Studio.
     """
     try:
         data = request.get_json()
@@ -248,7 +253,7 @@ def debug():
             "max_tokens": 100
         }
 
-        response = requests.post(LM_STUDIO_URL, json=payload, timeout=6000)
+        response = requests.post(LM_STUDIO_URL, json=payload, timeout=60000)
 
         return jsonify({
             'status_code': response.status_code,

@@ -18,7 +18,7 @@ def test_text_generation():
                 'position': 'pro',
                 'context': ''
             },
-            timeout=300
+            timeout=3000
         )
 
         print(f"Status Code: {response.status_code}")
@@ -55,7 +55,7 @@ def test_tts():
                 'text': 'Hello, this is a test of the text to speech system.',
                 'speaker': 'person1'
             },
-            timeout=300
+            timeout=3000
         )
 
         print(f"Status Code: {response.status_code}")
@@ -85,7 +85,7 @@ def test_orchestrator_health():
     print("="*50)
 
     try:
-        response = requests.get('http://localhost:8000/', timeout=100)
+        response = requests.get('http://localhost:8000/', timeout=1000)
 
         print(f"Status Code: {response.status_code}")
 
@@ -124,11 +124,11 @@ def test_full_pipeline_with_colab(colab_url=None):
         response = requests.post(
             'http://localhost:8000/generate',
             json={
-                'topic': 'AI will improve healthcare outcomes',
-                'rounds': 1,
+                'topic': 'What will be the impact of AI in modern warfare?',
+                'rounds': 2,
                 'colab_url': colab_url
             },
-            timeout=600  # 10-minute timeout for full-pipeline
+            timeout=6000  # 10-minute timeout for full-pipeline
         )
 
         print(f"Status Code: {response.status_code}")

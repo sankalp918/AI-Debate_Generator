@@ -105,34 +105,36 @@ class DebateGenerator:
 
     def generate_debate(self, topic, rounds=3):
         session_id = str(uuid.uuid4())
-        video_clips = []
-        context = ""
+        video_clips: list[str] = []
+        context: str = ""
+        texts: list[tuple[str, str, str]] = []
 
         logging.info(f"Starting debate: {topic}, {rounds} rounds")
         logging.info(f"Using Colab endpoint: {self.lipsync_service}")
 
+        # First pass – generate text and update context immediately
         for round_num in range(rounds):
             logging.info(f"Round {round_num + 1}/{rounds}")
-
-            # Generate pro argument
+            # Person 1 (pro)
             pro_text = self._generate_text(topic, 'pro', context)
-            pro_audio = self._generate_audio(pro_text, 'person1', session_id, f"pro_{round_num}")
-
-            if pro_audio:
-                pro_video = self._generate_lipsync_colab('person1', pro_audio, session_id, f"pro_{round_num}")
-                if pro_video:
-                    video_clips.append(pro_video)
-                    context += f"Pro: {pro_text}\n"
-
-            # Generate con argument
+            texts.append(('person1', pro_text, f"pro_{round_num}"))
+            context += f"Pro: {pro_text}\n"
+            # Person 2 (con)
             con_text = self._generate_text(topic, 'con', context)
-            con_audio = self._generate_audio(con_text, 'person2', session_id, f"con_{round_num}")
+            texts.append(('person2', con_text, f"con_{round_num}"))
+            context += f"Con: {con_text}\n"
 
-            if con_audio:
-                con_video = self._generate_lipsync_colab('person2', con_audio, session_id, f"con_{round_num}")
-                if con_video:
-                    video_clips.append(con_video)
-                    context += f"Con: {con_text}\n"
+        # Second pass – synthesize audio and video
+        for speaker, text, clip_id in texts:
+            audio_path = self._generate_audio(text, speaker, session_id, clip_id)
+            if not audio_path:
+                logging.error(f"Audio generation failed for {speaker} clip {clip_id}, skipping clip")
+                continue
+            video_path = self._generate_lipsync_colab(speaker, audio_path, session_id, clip_id)
+            if not video_path:
+                logging.error(f"Lip‑sync generation failed for {speaker} clip {clip_id}, skipping clip")
+                continue
+            video_clips.append(video_path)
 
         if not video_clips:
             raise Exception("No video clips generated")
@@ -144,7 +146,7 @@ class DebateGenerator:
         try:
             response = requests.post(f"{self.text_service}/generate",
                                      json={'topic': topic, 'position': position, 'context': context},
-                                     timeout=300)
+                                     timeout=3000)
 
             if response.status_code == 200:
                 return response.json()['content']
@@ -161,7 +163,7 @@ class DebateGenerator:
         try:
             response = requests.post(f"{self.tts_service}/synthesize",
                                      json={'text': text, 'speaker': speaker},
-                                     timeout=300)
+                                     timeout=3000)
 
             if response.status_code == 200:
                 audio_path = f"/tmp/{session_id}_{clip_id}.wav"
@@ -190,7 +192,7 @@ class DebateGenerator:
                 f"{self.lipsync_service}/lipsync",
                 json={'image': image_data, 'audio': audio_data},
                 headers={'Content-Type': 'application/json'},
-                timeout=600,  # 10-minute timeout
+                timeout=6000,  # 10-minute timeout
                 verify=verify_tls
             )
 
