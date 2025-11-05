@@ -25,22 +25,22 @@ An automated debate video generation system that creates realistic debate videos
 
 ## 🏗️ Architecture
 
-The system consists of four main components:
+The system consists of three main services plus a remote component:
 
 1. **Orchestrator Service** (Port 8000)
    - Main entry point and coordination service
    - Web UI for user interaction
    - Handles the complete pipeline workflow
-   - Manages video assembly and output
+   - Manages video assembly and output using MoviePy
 
 2. **Text Generation Service** (Port 8001)
    - Generates debate arguments using LM Studio or fallback templates
    - Supports both pro and con positions
-   - Integrates with local LLM models
+   - Integrates with local LLM models via LM Studio API
 
 3. **Text-to-Speech Service** (Port 8002)
-   - Converts text to speech using gTTS
-   - Supports different voices/accents for each debater
+   - Converts text to speech using ElevenLabs or gTTS fallback
+   - Supports different voices for each debater
    - Outputs WAV files optimized for lip-sync
 
 4. **SadTalker (Google Colab)**
@@ -67,21 +67,21 @@ The system consists of four main components:
 ### 1. Clone the Repository
 
 ```bash
-    git clone <repository-url>
-    cd AI-Debate_Generator
+git clone <repository-url>
+cd AI-Debate_Generator
 ```
 
 ### 2. Setup Local Services
 
 Create required directories:
 ```bash
-    mkdir -p output assets
+mkdir -p output assets
 ```
 
 Add debate avatar images to the `assets/` folder:
 - `person1.jpg` - Image for first debater
 - `person2.jpg` - Image for second debater
-- `podcast_background.jpg` - Optional podcast studio background (auto-generated if not provided)
+- `background.jpg` - Optional background image (auto-generated if not provided)
 
 ### 2.5. Configure API Keys (Optional but Recommended)
 
@@ -124,18 +124,9 @@ This will start:
    - Start Flask API service
    - Expose via ngrok tunnel
 
-4. **Enhanced Configuration** (for better gestures and expressions):
-   - The system now uses enhanced parameters from `sadtalker_enhanced_config.py`
-   - Includes:
-     - `still_mode: False` - Enables natural head movement
-     - `expression_scale: 1.3` - More expressive facial movements
-     - `enhancer: gfpgan` - Professional face enhancement
-     - `preprocess: full` - Better face detection and alignment
-     - Higher resolution (512px) for clearer output
+4. Copy the ngrok URL (e.g., `https://xxxx-xx-xx.ngrok.io`)
 
-5. Copy the ngrok URL (e.g., `https://xxxx-xx-xx.ngrok.io`)
-
-**Tip**: For even more dramatic gestures during heated debates, you can adjust `expression_scale` to 1.5 in the configuration.
+**Tip**: The Colab notebook includes optimized settings for enhanced facial expressions and natural head movements.
 
 ### 5. Configure LM Studio (Optional)
 
@@ -187,12 +178,15 @@ Test the pipeline components:
 AI-Debate_Generator/
 ├── docker-compose.yml          # Docker orchestration config
 ├── README.md                   # This file
+├── QUICK_START.md             # Quick setup guide
+├── AGENTS.md                  # Repository guidelines
 ├── SadTalker_Colab.ipynb      # Colab notebook for lip-sync
 ├── test_pipeline.py           # Testing script
-├── assets/                    # Input images
+├── .env.example               # Environment variables template
+├── assets/                    # Input images (create this directory)
 │   ├── person1.jpg           # Debater 1 avatar
 │   ├── person2.jpg           # Debater 2 avatar
-│   └── background.jpg        # Background image
+│   └── background.jpg        # Background image (optional)
 ├── output/                    # Generated videos (created automatically)
 ├── orchestrator/             # Main coordination service
 │   ├── Dockerfile
@@ -231,7 +225,7 @@ To change voices, edit `tts/tts_service.py`:
 ```python
 ELEVENLABS_VOICES = {
     'person1': {
-        'voice_id': 'pNInz6obpgDQGcFmaJgB',  # Adam
+        'voice_id': 'pNInz6obpgDQGcFmaJgB',  # Adam - Deep, authoritative male voice
         'settings': VoiceSettings(
             stability=0.5,
             similarity_boost=0.75,
@@ -240,11 +234,18 @@ ELEVENLABS_VOICES = {
         )
     },
     'person2': {
-        'voice_id': 'EXAVITQu4vr4xnSDxMaL',  # Bella
-        # ...
+        'voice_id': 'EXAVITQu4vr4xnSDxMaL',  # Bella - Professional, confident female voice
+        'settings': VoiceSettings(
+            stability=0.5,
+            similarity_boost=0.75,
+            style=0.3,
+            use_speaker_boost=True
+        )
     }
 }
 ```
+
+**Note**: The current implementation uses ElevenLabs v0.2.27 API, which generates audio using the `eleven_multilingual_v2` model.
 
 Browse all available ElevenLabs voices at [elevenlabs.io/voice-library](https://elevenlabs.io/voice-library)
 
@@ -265,9 +266,9 @@ GTTS_VOICES = {
    - Separate male (Adam) and female (Bella) voices for debaters
    - Automatic fallback to gTTS if no API key
 
-2. **Podcast-Style Video Compositing**
-   - Professional podcast studio aesthetic
-   - Speakers positioned on left/right alternating
+2. **Professional Video Compositing**
+   - Clean, professional video layout
+   - Speakers positioned for optimal presentation
    - Custom or auto-generated backgrounds
    - 1080p HD output quality
 
@@ -312,17 +313,21 @@ GTTS_VOICES = {
 ## 📦 Dependencies
 
 ### Core Services
-- **Flask**: Web framework for microservices
+- **Flask 2.3.3**: Web framework for microservices
 - **Docker**: Containerization platform
-- **MoviePy**: Video editing and assembly
-- **gTTS**: Google Text-to-Speech
-- **Requests**: HTTP client library
+- **MoviePy 1.0.3**: Video editing and assembly
+- **ElevenLabs 0.2.27**: Premium text-to-speech API
+- **gTTS 2.4.0**: Google Text-to-Speech (fallback)
+- **Requests 2.31.0**: HTTP client library
+- **Pillow 10.0.1**: Image processing
+- **NumPy 1.24.3**: Numerical computations
 
 ### SadTalker (Colab)
 - **PyTorch**: Deep learning framework
 - **SadTalker**: Lip-sync animation model
 - **FFmpeg**: Video/audio processing
-- **ngrok**: Tunneling service
+- **pyngrok**: Tunneling service
+- **GFPGAN**: Face enhancement
 
 ## 🚀 Performance Tips
 

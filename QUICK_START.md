@@ -40,7 +40,7 @@ Wait for all services to be healthy (about 2-3 minutes first time).
 3. Run all cells (takes ~10 minutes first time)
 4. Copy the ngrok URL that appears (e.g., `https://xxxx-xxxx.ngrok.io`)
 
-**Important**: Follow `SADTALKER_UPGRADE_INSTRUCTIONS.md` to enable enhanced expressions!
+**Important**: The notebook includes enhanced expression settings for more natural animations!
 
 ### Step 5: Generate Your First Debate!
 1. Open `http://localhost:8000` in your browser
@@ -72,9 +72,9 @@ Wait for all services to be healthy (about 2-3 minutes first time).
 
 ### For Maximum Realism:
 1. **Use ElevenLabs** - The voice quality difference is massive
-2. **Apply Enhanced SadTalker Parameters** - See `SADTALKER_UPGRADE_INSTRUCTIONS.md`
+2. **Use Enhanced SadTalker Parameters** - The Colab notebook includes optimized settings
 3. **Use High-Quality Images** - Good lighting, clear faces
-4. **Add Custom Podcast Background** - Makes it look like a real studio
+4. **Add Custom Background** - Makes it look like a real studio
 5. **Use Colab Pro with A100** - 3-4x faster processing
 
 ### Voice Customization:
@@ -105,8 +105,8 @@ To change voices, edit `tts/tts_service.py` and browse [ElevenLabs Voice Library
 - Look at Colab output for errors
 
 **Videos look stiff/robotic**
-- Apply enhanced SadTalker parameters (see `SADTALKER_UPGRADE_INSTRUCTIONS.md`)
-- Increase `expression_scale` to 1.5 for more movement
+- Use the enhanced SadTalker parameters in the Colab notebook
+- The notebook includes optimized expression settings for natural movement
 
 **Slow generation**
 - Use Colab Pro with A100 GPU
@@ -136,10 +136,10 @@ With T4 GPU + gTTS:
 ## 📚 Next Steps
 
 - Read `README.md` for detailed configuration options
-- See `SADTALKER_UPGRADE_INSTRUCTIONS.md` for gesture enhancements
 - Customize voices in `tts/tts_service.py`
-- Add your own podcast background images
+- Add your own background images
 - Experiment with debate topics and rounds
+- Check `AGENTS.md` for development guidelines
 
 ## 🆘 Need Help?
 
