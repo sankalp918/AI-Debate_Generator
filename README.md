@@ -4,9 +4,21 @@ An automated debate video generation system that creates realistic debate videos
 
 ## 🎯 Features
 
+### Core Features
 - **AI-Powered Debate Generation**: Generate compelling arguments for both sides of any debate topic
-- **Text-to-Speech**: Convert generated text to natural-sounding speech with different voices for each debater
-- **Lip-Sync Animation**: Create realistic talking head videos using SadTalker with GPU acceleration
+- **Professional Text-to-Speech**: 
+  - **ElevenLabs Integration**: Ultra-realistic human voices with natural intonation and emotion
+  - **gTTS Fallback**: Free alternative if no ElevenLabs API key provided
+  - Different voices for each debater (male/female professional voices)
+- **Enhanced Lip-Sync Animation**: 
+  - SadTalker with improved facial expressions and head movements
+  - More natural gestures and micro-expressions
+  - Professional-grade face enhancement (GFPGAN)
+- **Podcast-Style Video Production**:
+  - Speakers positioned on professional podcast background
+  - Alternating left/right positions for visual variety
+  - Customizable backgrounds (or automatic gradient)
+  - High-quality 1080p output
 - **Microservices Architecture**: Modular Docker-based architecture for scalability and maintainability
 - **Web Interface**: Simple web UI to input debate topics and generate videos
 - **Flexible Rounds**: Support for multiple debate rounds (1-3 rounds)
@@ -41,6 +53,7 @@ The system consists of four main components:
 ### Local Setup
 - Docker and Docker Compose
 - Python 3.8+ (for local testing)
+- **ElevenLabs API Key** (optional, for realistic voices - get from [elevenlabs.io](https://elevenlabs.io/))
 - LM Studio (optional, for local LLM text generation)
 - 8GB+ RAM recommended
 
@@ -68,7 +81,23 @@ Create required directories:
 Add debate avatar images to the `assets/` folder:
 - `person1.jpg` - Image for first debater
 - `person2.jpg` - Image for second debater
-- `background.jpg` - Optional background image
+- `podcast_background.jpg` - Optional podcast studio background (auto-generated if not provided)
+
+### 2.5. Configure API Keys (Optional but Recommended)
+
+**For Realistic Voices with ElevenLabs:**
+
+1. Get your ElevenLabs API key from [elevenlabs.io](https://elevenlabs.io/)
+2. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+3. Edit `.env` and add your API key:
+   ```
+   ELEVENLABS_API_KEY=your_actual_api_key_here
+   ```
+
+**Note**: If you don't provide an ElevenLabs API key, the system will automatically use gTTS (free but less realistic). ElevenLabs provides incredibly lifelike voices that make debates sound much more professional.
 
 ### 3. Start Docker Services
 
@@ -82,7 +111,7 @@ This will start:
 - TTS Service on http://localhost:8002
 - Orchestrator Service on http://localhost:8000
 
-### 4. Setup SadTalker on Google Colab
+### 4. Setup SadTalker on Google Colab (Enhanced)
 
 **Important**: SadTalker must run on Google Colab with A100 GPU runtime for optimal performance.
 
@@ -91,11 +120,22 @@ This will start:
 3. Run all cells in the notebook to:
    - Install Python 3.8 and dependencies
    - Clone and setup SadTalker repository
-   - Download required models
+   - Download required models (including GFPGAN for face enhancement)
    - Start Flask API service
    - Expose via ngrok tunnel
 
-4. Copy the ngrok URL (e.g., `https://xxxx-xx-xx.ngrok.io`)
+4. **Enhanced Configuration** (for better gestures and expressions):
+   - The system now uses enhanced parameters from `sadtalker_enhanced_config.py`
+   - Includes:
+     - `still_mode: False` - Enables natural head movement
+     - `expression_scale: 1.3` - More expressive facial movements
+     - `enhancer: gfpgan` - Professional face enhancement
+     - `preprocess: full` - Better face detection and alignment
+     - Higher resolution (512px) for clearer output
+
+5. Copy the ngrok URL (e.g., `https://xxxx-xx-xx.ngrok.io`)
+
+**Tip**: For even more dramatic gestures during heated debates, you can adjust `expression_scale` to 1.5 in the configuration.
 
 ### 5. Configure LM Studio (Optional)
 
@@ -182,14 +222,65 @@ environment:
 
 ### Voice Configuration
 
-Edit `tts/tts_service.py` to customize voices:
+**ElevenLabs Voices** (if API key is configured):
+- Person 1: Adam - Deep, authoritative male voice
+- Person 2: Bella - Professional, confident female voice
+
+To change voices, edit `tts/tts_service.py`:
 
 ```python
-VOICES = {
+ELEVENLABS_VOICES = {
+    'person1': {
+        'voice_id': 'pNInz6obpgDQGcFmaJgB',  # Adam
+        'settings': VoiceSettings(
+            stability=0.5,
+            similarity_boost=0.75,
+            style=0.3,
+            use_speaker_boost=True
+        )
+    },
+    'person2': {
+        'voice_id': 'EXAVITQu4vr4xnSDxMaL',  # Bella
+        # ...
+    }
+}
+```
+
+Browse all available ElevenLabs voices at [elevenlabs.io/voice-library](https://elevenlabs.io/voice-library)
+
+**gTTS Voices** (fallback):
+```python
+GTTS_VOICES = {
     'person1': {'lang': 'en', 'tld': 'com', 'slow': False},
     'person2': {'lang': 'en', 'tld': 'co.uk', 'slow': False}
 }
 ```
+
+## 🎉 What's New in This Version
+
+### Enhanced Realism Features
+
+1. **ElevenLabs TTS Integration**
+   - Professional, human-like voices with natural emotion
+   - Separate male (Adam) and female (Bella) voices for debaters
+   - Automatic fallback to gTTS if no API key
+
+2. **Podcast-Style Video Compositing**
+   - Professional podcast studio aesthetic
+   - Speakers positioned on left/right alternating
+   - Custom or auto-generated backgrounds
+   - 1080p HD output quality
+
+3. **Enhanced SadTalker Configuration**
+   - More natural head movements and gestures
+   - Improved facial expressions (30% more expressive)
+   - Face enhancement for professional quality
+   - Better lip-sync accuracy
+
+4. **Production Quality Improvements**
+   - Higher video bitrate (5000k)
+   - 25fps for smooth animation
+   - Better audio format (16kHz optimized for lip-sync)
 
 ## 🐛 Troubleshooting
 
