@@ -67,15 +67,15 @@ The system consists of three main services plus a remote component:
 
 ### 1. Clone the Repository
 
-```bash
-git clone <repository-url>
+```
+git clone https://github.com/sankalp918/AI-Debate_Generator
 cd AI-Debate_Generator
 ```
 
 ### 2. Setup Local Services
 
 Create required directories:
-```bash
+```
 mkdir -p output assets
 ```
 
