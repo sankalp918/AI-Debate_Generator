@@ -1,18 +1,16 @@
-# orchestrator/main.py
-import requests
-import os
-import json
 import base64
+import logging
+import os
+import uuid
+
+import numpy as np
+import requests
+from PIL import Image
+from flask import Flask, request, jsonify, render_template_string, send_file
 from moviepy.editor import (
     VideoFileClip, concatenate_videoclips, CompositeVideoClip,
     ImageClip, ColorClip
 )
-from PIL import Image
-import numpy as np
-import tempfile
-import uuid
-from flask import Flask, request, jsonify, render_template_string, send_file
-import logging
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -247,9 +245,11 @@ class DebateGenerator:
     def _generate_text(self, topic, position, context):
         try:
             logging.info(f"Generating {position} text for: {topic}")
-            response = requests.post(f"{self.text_service}/generate",
-                                     json={'topic': topic, 'position': position, 'context': context},
-                                     timeout=3000)
+            response = requests.post(
+                f"{self.text_service}/generate",
+                json={'topic': topic, 'position': position, 'context': context},
+                                timeout=90  # allow adequate generation time for large models
+            )
 
             if response.status_code == 200:
                 text = response.json()['content']
@@ -271,9 +271,11 @@ class DebateGenerator:
     def _generate_audio(self, text, speaker, session_id, clip_id):
         try:
             logging.info(f"Generating audio for {speaker}: {len(text)} chars")
-            response = requests.post(f"{self.tts_service}/synthesize",
-                                     json={'text': text, 'speaker': speaker},
-                                     timeout=3000)
+            response = requests.post(
+                f"{self.tts_service}/synthesize",
+                json={'text': text, 'speaker': speaker},
+                                timeout=90  # increased to 90s to accommodate longer TTS processing times
+            )
 
             if response.status_code == 200:
                 audio_path = f"/tmp/{session_id}_{clip_id}.wav"
@@ -313,7 +315,7 @@ class DebateGenerator:
                 f"{self.lipsync_service}/lipsync",
                 json={'image': image_data, 'audio': audio_data},
                 headers={'Content-Type': 'application/json'},
-                timeout=6000,  # 10-minute timeout
+                                timeout=6000,  # true 100-minute timeout
                 verify=verify_tls
             )
 

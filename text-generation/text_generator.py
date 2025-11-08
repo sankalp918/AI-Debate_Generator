@@ -1,8 +1,7 @@
-# Updated text-generation/text_generator.py
-from flask import Flask, request, jsonify
-import requests
-import json
 import logging
+
+import requests
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -62,7 +61,7 @@ def generate_debate_content(topic: str, position: str, previous_context: str = "
         }
 
         logging.info(f"Sending LM Studio request for {position} position")
-        response = requests.post(LM_STUDIO_URL, json=payload, timeout=60000)
+        response = requests.post(LM_STUDIO_URL, json=payload, timeout=300)
 
         if response.status_code == 200:
             result = response.json()
@@ -222,7 +221,7 @@ def health():
     """
     lm_studio_ok = False
     try:
-        response = requests.get("http://host.docker.internal:1234/v1/models", timeout=500)
+        response = requests.get("http://host.docker.internal:1234/v1/models", timeout=3)
         lm_studio_ok = response.status_code == 200
     except Exception:
         pass
@@ -253,7 +252,7 @@ def debug():
             "max_tokens": 100
         }
 
-        response = requests.post(LM_STUDIO_URL, json=payload, timeout=60000)
+        response = requests.post(LM_STUDIO_URL, json=payload, timeout=300)
 
         return jsonify({
             'status_code': response.status_code,

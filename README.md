@@ -14,6 +14,7 @@ An automated debate video generation system that creates realistic debate videos
   - SadTalker with improved facial expressions and head movements
   - More natural gestures and micro-expressions
   - Professional-grade face enhancement (GFPGAN)
+  - Automatic FAL upscaling plus Wav2Lip finishing for sharper faces and tighter lip sync
 - **Podcast-Style Video Production**:
   - Speakers positioned on professional podcast background
   - Alternating left/right positions for visual variety
@@ -126,6 +127,8 @@ This will start:
 
 4. Copy the ngrok URL (e.g., `https://xxxx-xx-xx.ngrok.io`)
 
+Once SadTalker produces a base animation, the notebook automatically upscales it with the FAL model and performs a Wav2Lip polishing pass before returning the final clip. Keep the Colab runtime active until both enhancement stages finish.
+
 **Tip**: The Colab notebook includes optimized settings for enhanced facial expressions and natural head movements.
 
 ### 5. Configure LM Studio (Optional)
@@ -171,6 +174,8 @@ Test the pipeline components:
 ```bash
     python test_pipeline.py
 ```
+
+Add `--colab-url https://your-ngrok-url.ngrok.io` to exercise the full debate flow once SadTalker is online. The script reports individual service health (text generation, TTS, orchestrator) before attempting the end-to-end run, so it is the fastest way to validate changes.
 
 ## 📁 Project Structure
 
@@ -328,6 +333,8 @@ GTTS_VOICES = {
 - **FFmpeg**: Video/audio processing
 - **pyngrok**: Tunneling service
 - **GFPGAN**: Face enhancement
+- **FAL Upscaling Model**: Post-process super-resolution for SadTalker clips
+- **Wav2Lip**: Final lip-sync refinement after upscaling
 
 ## 🚀 Performance Tips
 
@@ -339,7 +346,12 @@ GTTS_VOICES = {
 
 ## 🤝 Contributing
 
-Contributions are welcome! Areas for improvement:
+Review `AGENTS.md` for the concise contributor guide covering service layout, local commands, coding style, testing expectations, and commit/PR conventions. Highlights:
+- Use `python test_pipeline.py [--colab-url ...]` to demonstrate the services you touched.
+- Follow the existing imperative commit style (“Fixes deployed”) and include scope, env var notes, and artifacts in your PR description.
+- Keep secrets (ElevenLabs keys, ngrok tokens) in `.env` only and never commit personal avatar assets.
+
+Areas for improvement:
 - Additional TTS voice options
 - More sophisticated debate logic
 - Video editing features (transitions, backgrounds)

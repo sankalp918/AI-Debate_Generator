@@ -1,7 +1,6 @@
-import requests
-import time
-import json
 import sys
+
+import requests
 
 
 def test_text_generation():

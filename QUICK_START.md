@@ -42,6 +42,7 @@ Wait for all services to be healthy (about 2-3 minutes first time).
 
 **Important**: The notebook includes enhanced expression settings for more natural animations!
 
+After SadTalker renders each clip, the Colab workflow now upscales it with the FAL model and then applies Wav2Lip for final mouth refinement, so keep the runtime alive until both post-process steps finish.
 ### Step 5: Generate Your First Debate!
 1. Open `http://localhost:8000` in your browser
 2. Enter a debate topic (e.g., "AI will improve healthcare")
@@ -50,6 +51,13 @@ Wait for all services to be healthy (about 2-3 minutes first time).
 5. Click "Generate Debate"
 6. Wait 5-10 minutes (depends on length)
 7. Download your professional debate video!
+
+### Step 6: Verify Services (Recommended)
+From the project root, run:
+```bash
+    python test_pipeline.py
+```
+This pings the text-generation, TTS, and orchestrator services. Once SadTalker is live, append `--colab-url https://your-ngrok-url.ngrok.io` to test the entire end-to-end flow before opening a pull request.
 
 ## 🎭 What You Get
 
@@ -60,6 +68,7 @@ Wait for all services to be healthy (about 2-3 minutes first time).
 - ✅ Professional podcast-style layout
 - ✅ 1080p HD quality
 - ✅ Professional face enhancement
+- ✅ FAL upscaling + Wav2Lip finishing for razor-sharp, perfectly synced faces
 
 ### With Free Options (gTTS):
 - ✅ Functional debate videos
